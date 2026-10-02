@@ -40,6 +40,14 @@ function coreSuite(name, cliInfo, body) {
   return test(name, { skip: cliInfo.reason }, () => {});
 }
 
+// The CLI appends telemetry to ./.polycall/ of its working directory; run it
+// from a scratch directory so tests never write into the repository.
+let cliCwd = null;
+function cliWorkDir() {
+  if (!cliCwd) cliCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'node-polycall-cwd-'));
+  return cliCwd;
+}
+
 function randomToken() {
   return `t-${crypto.randomBytes(12).toString('hex')}`;
 }
@@ -54,6 +62,7 @@ function runCli(cli, args, { env = {}, input, timeoutMs = 30000 } = {}) {
     const child = execFile(cli, args, {
       env: { ...process.env, ...env },
       encoding: 'buffer',
+      cwd: cliWorkDir(),
       maxBuffer: 8 * 1024 * 1024,
       timeout: timeoutMs,
       windowsHide: true
@@ -93,7 +102,7 @@ async function startPeerServe(cli, { nodeId, token = '', printMessages = false, 
   if (printMessages) args.push('--print-messages');
   const env = { ...process.env, POLYCALL_DEV_TOKEN: token };
   if (!token) delete env.POLYCALL_DEV_TOKEN;
-  const proc = spawn(cli, args, { env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(cli, args, { env, cwd: cliWorkDir(), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const events = [];
   let buffer = '';
   let stderr = '';
@@ -135,7 +144,7 @@ async function startRuntime(cli, { authToken } = {}) {
   const endpointFile = path.join(dir, 'endpoint');
   const args = ['start', '--endpoint', '127.0.0.1:0', '--endpoint-file', endpointFile];
   if (authToken) args.push('--auth-token', authToken);
-  const proc = spawn(cli, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(cli, args, { cwd: cliWorkDir(), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let stderr = '';
   proc.stderr.on('data', (chunk) => { stderr += chunk; });
   proc.stdout.resume();
