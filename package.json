@@ -1,28 +1,53 @@
 {
-    "name": "@obinexuscomputing/node-polycall",
-    "version": "1.0.0",
-    "description": "Node.js bindings for libpolycall - A Program First Data-Oriented Program Interface",
-    "main": "src/index.js",
-    
-    "scripts": {
-        "start": "node src/index.js",
-        "test": "echo \"Error: no test specified\" && exit 1"
+  "name": "@obinexuscomputing/node-polycall",
+  "version": "1.1.0",
+  "description": "Dependency-free Node.js binding for Polycall: polycall_rpc v1 client and polycall-peer/1 peer node (server + client), interoperable with the polycall C library and CLI.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
     },
-    "repository": {
-        "type": "git",
-        "url": "https://gitlab.com/obinexuscomputing/libpolycall.git"
-    },
-    "keywords": [
-        "libpolycall",
-        "polycalls",
-        "data-oriented",
-        "api",
-        "bindings",
-        "nodejs"
-    ],
-    "author": "OBINexusComputing",
-    "license": "MIT",
-    "private": true,
-    "dependencies": {},
-    "devDependencies": {}
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/run.js",
+    "test:unit": "node test/run.js unit",
+    "test:core": "node test/run.js core"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/obinexus/node-polycall.git"
+  },
+  "homepage": "https://github.com/obinexus/node-polycall#readme",
+  "bugs": {
+    "url": "https://github.com/obinexus/node-polycall/issues"
+  },
+  "keywords": [
+    "polycall",
+    "libpolycall",
+    "rpc",
+    "peer-to-peer",
+    "polycall-peer",
+    "bindings",
+    "nodejs"
+  ],
+  "author": "OBINexusComputing",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {},
+  "devDependencies": {}
 }

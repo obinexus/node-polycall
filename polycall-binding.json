@@ -1,0 +1,13 @@
+{
+  "name": "node-polycall",
+  "version": "1.1.0",
+  "package": "@obinexuscomputing/node-polycall",
+  "language": "JavaScript (Node.js)",
+  "adapter": false,
+  "ffi": false,
+  "transport": ["polycall_rpc v1 (PCR1)", "polycall-peer/1"],
+  "core": "polycall >= 1.1.0 (binding ABI 1)",
+  "core_repository": "https://github.com/obinexus/polycall",
+  "license": "MIT",
+  "author": "OBINexusComputing"
+}
