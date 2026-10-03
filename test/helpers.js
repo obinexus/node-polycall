@@ -13,31 +13,42 @@ const { spawn, spawnSync, execFile } = require('node:child_process');
 
 /**
  * The polycall CLI to test against: $POLYCALL_CLI, else `polycall` on PATH.
- * Returns {cli, reason}; cli is null (with the reason) when unavailable.
- * With POLYCALL_REQUIRE_CLI=1 a missing CLI is an error, not a skip.
+ * Returns {cli, reason, required}; cli is null (with the reason) when
+ * unavailable. POLYCALL_REQUIRE_CLI=1 sets `required`: coreSuite() then
+ * registers a FAILING test instead of a skipped one.
  */
 function findCli() {
+  const required = process.env.POLYCALL_REQUIRE_CLI === '1';
   const explicit = process.env.POLYCALL_CLI;
   if (explicit) {
-    if (!fs.existsSync(explicit)) throw new Error(`POLYCALL_CLI=${explicit} does not exist`);
-    return { cli: explicit, reason: '' };
+    if (!fs.existsSync(explicit)) return { cli: null, reason: `POLYCALL_CLI=${explicit} does not exist`, required: true };
+    return { cli: explicit, reason: '', required };
   }
   const probe = spawnSync('polycall', ['--version'], { encoding: 'utf8', windowsHide: true });
-  if (probe.status === 0) return { cli: 'polycall', reason: '' };
-  const reason = 'polycall CLI not available (set POLYCALL_CLI or put polycall on PATH)';
-  if (process.env.POLYCALL_REQUIRE_CLI === '1') throw new Error(reason);
-  return { cli: null, reason };
+  if (probe.status === 0) return { cli: 'polycall', reason: '', required };
+  return { cli: null, reason: 'polycall CLI not available (set POLYCALL_CLI or put polycall on PATH)', required };
 }
 
 /**
- * describe() for a suite that needs the real core. Without a CLI the suite
- * is registered as ONE skipped test carrying the reason, so the run summary
- * counts it under 'skipped' instead of silently showing nothing.
+ * describe() for a suite that needs the real core. When what it needs is
+ * missing the suite is ONE test carrying the reason: skipped (counted under
+ * 'skipped', never 'pass'), or failed when the requirement was made
+ * mandatory (POLYCALL_REQUIRE_CLI=1, or an explicitly configured path that
+ * does not exist).
  */
-function coreSuite(name, cliInfo, body) {
+function requirementSuite(name, info, ready, body) {
   const { describe, test } = require('node:test');
-  if (cliInfo.cli) return describe(name, body);
-  return test(name, { skip: cliInfo.reason }, () => {});
+  if (ready) return describe(name, body);
+  if (info.required) {
+    return test(`${name} -- REQUIRED but unavailable`, () => {
+      throw new Error(`${info.reason} (required: this is a failure, not a skip)`);
+    });
+  }
+  return test(name, { skip: info.reason }, () => {});
+}
+
+function coreSuite(name, cliInfo, body) {
+  return requirementSuite(name, cliInfo, Boolean(cliInfo.cli), body);
 }
 
 // The CLI appends telemetry to ./.polycall/ of its working directory; run it
@@ -176,7 +187,10 @@ async function startRuntime(cli, { authToken } = {}) {
 async function startDaemon(cli, { token }) {
   const dir = tempDir('daemon');
   const polycallfile = path.join(dir, 'Polycallfile');
-  fs.writeFileSync(polycallfile, 'daemon_endpoint=127.0.0.1:0\ntls_enabled=false\n');
+  // explicit ephemeral endpoint and a private state directory (relative to
+  // the Polycallfile, so start/status/stop agree): never the shared
+  // 127.0.0.1:8084 default, never another process's state
+  fs.writeFileSync(polycallfile, 'daemon_endpoint=127.0.0.1:0\ndaemon_state_dir=state\ntls_enabled=false\n');
   const env = { POLYCALL_DEV_TOKEN: token };
   const started = await runCli(cli, ['daemon', 'start', polycallfile, '--timeout-ms', '10000'], { env });
   if (started.status !== 0) throw new Error(`daemon start failed (${started.status}): ${started.stderr}`);
