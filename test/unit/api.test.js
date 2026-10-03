@@ -93,5 +93,36 @@ test('ESM entry point exposes the same API', async () => {
   const esm = await import('../../index.mjs');
   assert.equal(esm.call, polycall.call);
   assert.equal(esm.PeerNode, polycall.PeerNode);
+  assert.equal(esm.native, polycall.native);
   assert.equal(esm.default, polycall);
+});
+
+test('native layer without node:ffi: clear E_UNSUPPORTED error, nothing else breaks', () => {
+  // A child Node.js without node:ffi (Node 20/22 never have it; on Node 26 it is
+  // switched off with --no-experimental-ffi): load() must refuse cleanly and the
+  // wire-protocol API must still load.
+  const { spawnSync } = require('node:child_process');
+  const script = `
+    const p = require(${JSON.stringify(require.resolve('../..'))});
+    const a = p.native.available();
+    let e;
+    try { p.native.load(); } catch (error) { e = error; }
+    console.log(JSON.stringify({ ok: a.ok, reason: a.reason, status: e && e.status, code: e && e.code,
+      message: e && e.message, call: typeof p.call, peer: typeof p.PeerNode }));`;
+  const env = { ...process.env };
+  delete env.NODE_OPTIONS;
+  const off = process.allowedNodeEnvironmentFlags.has('--no-experimental-ffi') ? ['--no-experimental-ffi'] : [];
+  const r = spawnSync(process.execPath, [...off, '-e', script], { encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.ok, false);
+  assert.match(out.reason, /--experimental-ffi/);
+  assert.equal(out.status, polycall.Status.E_UNSUPPORTED);
+  assert.equal(out.code, 'POLYCALL_E_UNSUPPORTED');
+  assert.match(out.message, /Node\.js >= 26/);
+  assert.equal(out.call, 'function');
+  assert.equal(out.peer, 'function');
+  assert.deepEqual(polycall.native.platformNames('win32'), ['polycall.dll', 'libpolycall.dll']);
+  assert.deepEqual(polycall.native.platformNames('linux'), ['libpolycall.so.1']);
+  assert.deepEqual(polycall.native.platformNames('darwin'), ['libpolycall.1.dylib']);
 });

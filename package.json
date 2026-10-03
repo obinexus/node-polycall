@@ -1,7 +1,7 @@
 {
   "name": "@obinexuscomputing/node-polycall",
   "version": "1.1.0",
-  "description": "Dependency-free Node.js binding for Polycall: polycall_rpc v1 client and polycall-peer/1 peer node (server + client), interoperable with the polycall C library and CLI.",
+  "description": "Dependency-free Node.js binding for Polycall: polycall_rpc v1 client and polycall-peer/1 peer node (server + client), interoperable with the polycall C library and CLI, plus an optional native layer over the real libpolycall via node:ffi.",
   "main": "index.js",
   "types": "index.d.ts",
   "exports": {
@@ -23,7 +23,8 @@
   "scripts": {
     "test": "node test/run.js",
     "test:unit": "node test/run.js unit",
-    "test:core": "node test/run.js core"
+    "test:core": "node test/run.js core",
+    "test:native": "node test/run.js native"
   },
   "engines": {
     "node": ">=20"

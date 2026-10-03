@@ -8,13 +8,16 @@
 //    helpers, interoperable with `polycall peer serve` and the C library's
 //    polycall_peer_* nodes (docs/PEER_PROTOCOL.md)
 //
-// It speaks the wire protocols in plain JavaScript; it does not load
-// libpolycall and needs no native addon or compiler.
+// It speaks the wire protocols in plain JavaScript and needs no native addon
+// or compiler. The optional `native` layer loads the real libpolycall
+// through node:ffi (Node.js >= 26 with --experimental-ffi) for
+// polycall_ffi_run_config / describe / call and the library version check.
 
 const { Status, strerror, statusName, PolycallError } = require('./lib/status');
 const common = require('./lib/common');
 const rpc = require('./lib/rpc');
 const peer = require('./lib/peer');
+const native = require('./lib/native');
 const pkg = require('./package.json');
 
 /** Binding ABI generation whose semantics (status codes, limits) this package follows. */
@@ -83,5 +86,13 @@ module.exports = Object.freeze({
     peers: peer.remotePeers,
     register: peer.remoteRegister,
     inboxNext: peer.remoteInboxNext
+  }),
+  native: Object.freeze({
+    ABI_VERSION: native.ABI_VERSION,
+    SYMBOLS: native.SYMBOLS,
+    NativeLibrary: native.NativeLibrary,
+    available: native.available,
+    platformNames: native.platformNames,
+    load: native.load
   })
 });

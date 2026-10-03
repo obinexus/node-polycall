@@ -10,9 +10,15 @@ Dependency-free Node.js binding for [Polycall](https://github.com/obinexus/polyc
   (`polycall peer serve`, `polycall_peer_*`) and with other implementations.
 
 It is written in plain JavaScript on `node:net` / `node:http`: no native
-addon, no compiler, no runtime dependencies. It does **not** load
-`libpolycall`; it speaks the wire protocols, and reports failures with the
-same status codes and names as the C binding ABI v1 (`polycall.h`).
+addon, no compiler, no runtime dependencies. The RPC client and the peer node
+speak the wire protocols and report failures with the same status codes and
+names as the C binding ABI v1 (`polycall.h`).
+
+An optional **native layer** (`polycall.native`) loads the real
+`libpolycall` through Node's built-in FFI (`node:ffi`, Node.js >= 26
+started with `--experimental-ffi`) for `polycall_ffi_run_config`,
+`polycall_ffi_describe`, `polycall_call` and the library version / ABI
+check -- see [Native layer](#native-layer-optional).
 
 Package name: `@obinexuscomputing/node-polycall` (not published to npm; the
 manifest is marked `"private": true`). Tested on Node.js 20, 22 and 26.
@@ -96,6 +102,42 @@ sender).
 `polycall.remote.health|peers|register|inboxNext(endpoint, ...)` talk to any
 running node from outside it, like `polycall peer health|peers|register|recv`.
 
+## Native layer (optional)
+
+Needs Node.js >= 26 with `node:ffi` enabled: Node.js 26.7 needs
+`--experimental-ffi` (or `NODE_OPTIONS=--experimental-ffi`), 26.10 has it on
+by default. `node:ffi` is still experimental in Node.js and may change. On older Node.js `polycall.native.load()` throws
+`E_UNSUPPORTED` and everything else keeps working.
+
+```js
+const { native } = require('@obinexuscomputing/node-polycall');
+
+const lib = native.load();          // POLYCALL_LIBRARY, else polycall.dll / libpolycall.dll / libpolycall.so.1
+lib.version();                      // '1.1.0' (polycall_ffi_version); lib.abiVersion() === 1
+lib.runConfig('node-polycallrc');   // polycall_ffi_run_config(path, 1): strict, for running with this build
+lib.runConfig('Polycallfile', false); // validate only (unknown keys are warnings)
+lib.describe('Polycallfile');       // polycall_ffi_describe, parsed
+lib.callSync('127.0.0.1:8084', 'inventory', 'get', '{"item_id":"widget-a"}', { timeoutMs: 2000 });
+```
+
+* **Loading** (docs/BINDING_ABI.md): `options.path`, then `POLYCALL_LIBRARY`,
+  then the platform names. An explicit path that cannot be loaded is an
+  error (`E_NOT_FOUND`), never replaced by another library. Every symbol
+  is resolved up front: a library without the binding ABI v1 symbols (a 1.0
+  core) or with `polycall_ffi_abi_version() != 1` is refused with
+  `E_UNSUPPORTED` naming the library (and `error.symbol` / `error.abi`).
+* **Errors** are `PolycallError`s with the library's status, its
+  `polycall_strerror` name and the calling thread's `polycall_last_error`
+  detail (`lib.lastError()`; per thread, so worker threads do not mix).
+* **Ownership**: the library never returns memory to free; outputs land in
+  Buffers this package owns, grown to the exact size snprintf-style.
+* `callSync` is **synchronous** -- it blocks the event loop for up to
+  `timeoutMs` (1..600000, checked by the library). Use the asynchronous
+  `call()` / `callJson()` in servers. A too-small `maxOutput` throws
+  `E_TOO_LARGE` with `error.needed` (the operation already ran).
+* Configuration paths are UTF-8 end to end, including non-ASCII paths on
+  Windows (core >= 58bae1b).
+
 ## Errors
 
 Every failure is a `PolycallError` with `status` (negative `POLYCALL_E_*`
@@ -111,9 +153,10 @@ CommonJS (`require`) are both supported.
 ## Tests
 
 ```sh
-npm test                 # unit + core
+npm test                 # unit + core + native
 npm run test:unit        # adapter unit tests (no core needed)
 POLYCALL_CLI=/opt/polycall/bin/polycall npm run test:core
+POLYCALL_LIBRARY=/opt/polycall/lib/libpolycall.so.1 npm run test:native   # Node.js >= 26
 ```
 
 `test/core/` runs against the **real** C core: `polycall start`,
@@ -121,9 +164,20 @@ POLYCALL_CLI=/opt/polycall/bin/polycall npm run test:core
 UTF-8, binary-with-NUL, exactly-1-MiB and 1-MiB+1 payloads in both
 directions with bytes, sender id and message id verified at the receiver,
 plus duplicates, auth failures, dead peers, wrong identities, backpressure,
-concurrent senders and cancel/close. When no `polycall` CLI is found
-(`POLYCALL_CLI` or `PATH`) the core suites are reported as **skipped**; set
-`POLYCALL_REQUIRE_CLI=1` to make that a failure.
+concurrent senders and cancel/close. `test/native/` runs the native layer
+against the real library: version / ABI, `strerror` against the JS table,
+`run_config` (valid, missing, malformed, strict unknown key, TLS
+unsupported, non-ASCII path), `describe`, per-thread `last_error`,
+concurrent use from worker threads, `callSync` against `polycall start` and
+`polycall daemon start`, and the loader errors (missing library, a library
+without the ABI v1 symbols, ABI 2 -- the last two build
+`test/fixtures/fake_polycall.c` with `$CC`).
+
+When no `polycall` CLI is found (`POLYCALL_CLI` or `PATH`), or no
+library / no `node:ffi` is available, those suites are reported as
+**skipped** with the reason and listed at the end as not verified; set
+`POLYCALL_REQUIRE_CLI=1` / `POLYCALL_REQUIRE_NATIVE=1` to make that a
+failure.
 
 ## License
 

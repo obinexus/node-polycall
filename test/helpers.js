@@ -33,8 +33,8 @@ function findCli() {
  * describe() for a suite that needs the real core. When what it needs is
  * missing the suite is ONE test carrying the reason: skipped (counted under
  * 'skipped', never 'pass'), or failed when the requirement was made
- * mandatory (POLYCALL_REQUIRE_CLI=1, or an explicitly configured path that
- * does not exist).
+ * mandatory (POLYCALL_REQUIRE_CLI=1 / POLYCALL_REQUIRE_NATIVE=1, or an
+ * explicitly configured path that does not exist).
  */
 function requirementSuite(name, info, ready, body) {
   const { describe, test } = require('node:test');
@@ -49,6 +49,49 @@ function requirementSuite(name, info, ready, body) {
 
 function coreSuite(name, cliInfo, body) {
   return requirementSuite(name, cliInfo, Boolean(cliInfo.cli), body);
+}
+
+/**
+ * The real libpolycall through node-polycall's native layer: $POLYCALL_LIBRARY,
+ * else the platform name. Returns {lib, reason, required}; POLYCALL_REQUIRE_NATIVE=1
+ * makes an unavailable library (or a Node.js without node:ffi) a failure.
+ */
+function findNative() {
+  const native = require('../lib/native');
+  const required = process.env.POLYCALL_REQUIRE_NATIVE === '1';
+  const ffi = native.available();
+  if (!ffi.ok) return { lib: null, reason: ffi.reason, required };
+  try {
+    return { lib: native.load(), reason: '', required };
+  } catch (error) {
+    return { lib: null, reason: `libpolycall not loadable: ${error.message}`, required: required || Boolean(process.env.POLYCALL_LIBRARY) };
+  }
+}
+
+function nativeSuite(name, nativeInfo, body) {
+  return requirementSuite(name, nativeInfo, Boolean(nativeInfo.lib), body);
+}
+
+/**
+ * Compile test/fixtures/fake_polycall.c into a shared library with $CC (or
+ * cc / gcc on PATH). kind 'old' = a 1.0-style library without the ABI v1
+ * symbols, 'abi2' = all symbols but polycall_ffi_abi_version() == 2.
+ * Returns {path, reason}; path is null (with the reason) without a compiler.
+ */
+function buildFakeLibrary(kind, dir) {
+  const source = path.join(__dirname, 'fixtures', 'fake_polycall.c');
+  const ext = process.platform === 'win32' ? '.dll' : process.platform === 'darwin' ? '.dylib' : '.so';
+  const out = path.join(dir, `fake-${kind}${ext}`);
+  const compilers = process.env.CC ? [process.env.CC] : ['cc', 'gcc'];
+  const args = ['-shared', ...(process.platform === 'win32' ? [] : ['-fPIC']),
+    ...(kind === 'abi2' ? ['-DFAKE_ABI=2'] : []), '-o', out, source];
+  const tried = [];
+  for (const cc of compilers) {
+    const r = spawnSync(cc, args, { encoding: 'utf8', windowsHide: true });
+    if (r.status === 0 && fs.existsSync(out)) return { path: out, reason: '' };
+    tried.push(`${cc}: ${r.error ? r.error.code || r.error.message : (r.stderr || `exit ${r.status}`).trim()}`);
+  }
+  return { path: null, reason: `no C compiler to build the ${kind} fixture library (set CC): ${tried.join('; ')}` };
 }
 
 // The CLI appends telemetry to ./.polycall/ of its working directory; run it
@@ -231,6 +274,6 @@ function standardPayloads() {
 }
 
 module.exports = {
-  findCli, coreSuite, randomToken, tempDir, runCli, waitFor,
+  findCli, coreSuite, findNative, nativeSuite, buildFakeLibrary, randomToken, tempDir, runCli, waitFor,
   startPeerServe, startRuntime, startDaemon, deadEndpoint, standardPayloads
 };

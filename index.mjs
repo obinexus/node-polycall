@@ -22,5 +22,6 @@ export const {
   frame,
   PeerNode,
   openPeer,
-  remote
+  remote,
+  native
 } = polycall;

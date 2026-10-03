@@ -47,10 +47,18 @@ export declare class PolycallError extends Error {
   readonly remoteJson?: string;
   /** HTTP status of a rejected peer request. */
   readonly httpStatus?: number;
-  /** recv(): bytes the queued message needs when maxBytes was too small. */
+  /** recv() / native callSync(): bytes needed when maxBytes / maxOutput was too small. */
   readonly needed?: number;
   /** send(): the message id used (retry with the same id). */
   readonly messageId?: string;
+  /** Native layer: true when the failure came from libpolycall or its loader. */
+  readonly native?: boolean;
+  /** Native layer: the library that was loaded or tried. */
+  readonly library?: string;
+  /** Native loader: the missing symbol (a library without binding ABI 1). */
+  readonly symbol?: string;
+  /** Native loader: the ABI the library reported when it was not 1. */
+  readonly abi?: number;
 }
 
 export declare const ABI_VERSION: 1;
@@ -190,4 +198,44 @@ export declare const remote: Readonly<{
   register(endpoint: string, id: string, peerEndpoint: string,
     options?: { authToken?: string; timeoutMs?: number }): Promise<{ ok: true; registered: string }>;
   inboxNext(endpoint: string, options?: { authToken?: string; timeoutMs?: number }): Promise<Message | null>;
+}>;
+
+/** A loaded, ABI-checked libpolycall (the optional native layer, node:ffi). */
+export declare class NativeLibrary {
+  private constructor();
+  /** The name or path that was loaded. */
+  readonly path: string;
+  readonly closed: boolean;
+  /** polycall_ffi_abi_version() (1). */
+  abiVersion(): number;
+  /** polycall_ffi_version(), e.g. "1.1.0". */
+  version(): string;
+  /** polycall_strerror(status) from the library itself. */
+  strerror(status: number): string;
+  /** polycall_last_error() of the calling thread. */
+  lastError(): string;
+  /** polycall_ffi_run_config(path, strict ? 1 : 0); throws PolycallError on failure. */
+  runConfig(configPath: string | null, strict?: boolean): 0;
+  /** polycall_ffi_describe(path), parsed. */
+  describe(configPath: string | null): Record<string, unknown>;
+  /** polycall_call(); SYNCHRONOUS (blocks the event loop); returns the output JSON text. */
+  callSync(endpoint: string, service: string, operation: string, inputJson?: string | null,
+    options?: { timeoutMs?: number; maxOutput?: number }): string;
+  /** dlclose; later calls throw E_INVALID_HANDLE; a second close is a no-op. */
+  close(): void;
+}
+
+/**
+ * Optional native layer: the real libpolycall through node:ffi (Node.js >= 26
+ * started with --experimental-ffi). load() honours options.path, then
+ * $POLYCALL_LIBRARY, then polycall.dll / libpolycall.dll / libpolycall.so.1 /
+ * libpolycall.1.dylib; it resolves every symbol and checks ABI 1 up front.
+ */
+export declare const native: Readonly<{
+  ABI_VERSION: 1;
+  SYMBOLS: readonly string[];
+  NativeLibrary: typeof NativeLibrary;
+  available(): { ok: boolean; reason: string };
+  platformNames(platform?: string): string[];
+  load(options?: { path?: string; env?: Record<string, string | undefined> }): NativeLibrary;
 }>;
