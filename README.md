@@ -106,8 +106,9 @@ running node from outside it, like `polycall peer health|peers|register|recv`.
 
 Needs Node.js >= 26 with `node:ffi` enabled: Node.js 26.7 needs
 `--experimental-ffi` (or `NODE_OPTIONS=--experimental-ffi`), 26.10 has it on
-by default. `node:ffi` is still experimental in Node.js and may change. On older Node.js `polycall.native.load()` throws
-`E_UNSUPPORTED` and everything else keeps working.
+by default. `node:ffi` is still experimental in Node.js and may change. On
+older Node.js `polycall.native.load()` throws `E_UNSUPPORTED` and everything
+else keeps working.
 
 ```js
 const { native } = require('@obinexuscomputing/node-polycall');

@@ -127,6 +127,8 @@ function runCli(cli, args, { env = {}, input, timeoutMs = 30000 } = {}) {
         stderr: stderr.toString('utf8')
       });
     });
+    // a CLI that exits before reading stdin closes the pipe: that EPIPE is its own
+    child.stdin.on('error', (error) => { if (error.code !== 'EPIPE' && error.code !== 'EOF') throw error; });
     if (input !== undefined) child.stdin.end(input); else child.stdin.end();
   });
 }
