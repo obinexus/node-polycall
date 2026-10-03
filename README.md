@@ -20,7 +20,7 @@ started with `--experimental-ffi`) for `polycall_ffi_run_config`,
 `polycall_ffi_describe`, `polycall_call` and the library version / ABI
 check -- see [Native layer](#native-layer-optional).
 
-Package name: `@obinexuscomputing/node-polycall` (not published to npm; the
+Package name: `node-polycall` (not published to npm; the
 manifest is marked `"private": true`). Tested on Node.js 20, 22 and 26.
 
 > This replaces the earlier 1.0.0 prototype (`PolyCallClient`, `Router`,
@@ -32,13 +32,13 @@ manifest is marked `"private": true`). Tested on Node.js 20, 22 and 26.
 From a checkout or a packed tarball (`npm pack`):
 
 ```sh
-npm install ./obinexuscomputing-node-polycall-1.1.0.tgz
+npm install ./node-polycall-1.1.0.tgz
 ```
 
 ## RPC client
 
 ```js
-const polycall = require('@obinexuscomputing/node-polycall');
+const polycall = require('node-polycall');
 
 // against `polycall start` (prints its endpoint) or `polycall daemon start`
 const out = await polycall.call('127.0.0.1:8084', 'inventory', 'get', { item_id: 'widget-a' });
@@ -70,7 +70,7 @@ sends a CONTROL frame.
 ## Peer node
 
 ```js
-const { PeerNode } = require('@obinexuscomputing/node-polycall');
+const { PeerNode } = require('node-polycall');
 
 const node = await PeerNode.open('alpha', { bind: '127.0.0.1:0', authToken: process.env.POLYCALL_DEV_TOKEN });
 node.register('beta', '127.0.0.1:9002');          // THIS node's registry only
@@ -111,7 +111,7 @@ older Node.js `polycall.native.load()` throws `E_UNSUPPORTED` and everything
 else keeps working.
 
 ```js
-const { native } = require('@obinexuscomputing/node-polycall');
+const { native } = require('node-polycall');
 
 const lib = native.load();          // POLYCALL_LIBRARY, else polycall.dll / libpolycall.dll / libpolycall.so.1
 lib.version();                      // '1.1.0' (polycall_ffi_version); lib.abiVersion() === 1

@@ -1,4 +1,4 @@
-// Type definitions for @obinexuscomputing/node-polycall
+// Type definitions for node-polycall
 // (polycall_rpc v1 client + polycall-peer/1 peer, plain Node.js)
 
 /// <reference types="node" />

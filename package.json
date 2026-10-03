@@ -1,5 +1,5 @@
 {
-  "name": "@obinexuscomputing/node-polycall",
+  "name": "node-polycall",
   "version": "1.1.0",
   "description": "Dependency-free Node.js binding for Polycall: polycall_rpc v1 client and polycall-peer/1 peer node (server + client), interoperable with the polycall C library and CLI, plus an optional native layer over the real libpolycall via node:ffi.",
   "main": "index.js",

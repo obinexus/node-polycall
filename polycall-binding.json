@@ -1,7 +1,7 @@
 {
   "name": "node-polycall",
   "version": "1.1.0",
-  "package": "@obinexuscomputing/node-polycall",
+  "package": "node-polycall",
   "language": "JavaScript (Node.js)",
   "adapter": false,
   "ffi": "optional: node:ffi (Node.js >= 26 with --experimental-ffi)",
